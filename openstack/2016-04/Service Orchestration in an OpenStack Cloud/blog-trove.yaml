@@ -1,0 +1,89 @@
+heat_template_version: 2013-05-23
+
+description: Simple template to deploy a single compute instance
+
+parameters:
+  wordpress_vol_size:
+    type: number
+    label: Wordpress Volume Size
+    description: The size of the Wordpress block storage volume
+    default: 1
+
+  wordpress_flavor:
+    type: string
+    label: Wordpress Instance Size
+    description: The instance size for Wordpress
+    default: m1.tiny
+    constraints:
+      - allowed_values: [ m1.tiny ]
+
+resources:
+  wordpress:
+    type: OS::Nova::Server
+    properties:
+      key_name: rashford
+      image: rashford/wordpress
+      flavor: { get_param: wordpress_flavor }
+      networks:
+        - port: { get_resource: wordpress_port }
+
+  wordpress_port:
+    type: OS::Neutron::Port
+    properties:
+      network_id: 2b85b72c-21fc-4b91-b990-24fac381658d
+      security_groups: [ { get_resource: www_group } ]
+
+  wordpress_floating_ip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network_id: 2b85b72c-21fc-4b91-b990-24fac381658d
+      port_id: { get_resource: wordpress_port }
+
+  www_group:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      description: Add security group rules for server
+      name: www
+      rules:
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: tcp
+          port_range_min: 80
+          port_range_max: 80
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: tcp
+          port_range_min: 443
+          port_range_max: 443
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: icmp
+
+  wordpress_vol:
+    type: OS::Cinder::Volume
+    properties:
+      size: { get_param: wordpress_vol_size }
+
+  wordpress_vol_att:
+    type: OS::Cinder::VolumeAttachment
+    properties:
+      instance_uuid: { get_resource: wordpress }
+      volume_id: { get_resource: wordpress_vol }
+
+  wordpress_database:
+    type: OS::Trove::Instance
+    # Currently trove lives in its own availability_zone, so do not use the availability_zone attribute.
+    properties:
+      name: wordpress_trove_instance
+      databases: [ { name: wordpress }, ]
+      datastore_type: mysql
+      datastore_version: mysql-5.5
+      flavor: m1.tiny
+      size: 1
+      users: [{ password: wordpress, name: wordpress, databases: [ wordpress ] }, ]
+
+
+outputs:
+  host_name:
+    description: The host name of the data store.
+    value: { get_attr: [wordpress_database, hostname] }
+  host_href:
+    description: The href of the data store.
+    value: { get_attr: [wordpress_database, href] }

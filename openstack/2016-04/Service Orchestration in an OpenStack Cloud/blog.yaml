@@ -1,0 +1,148 @@
+heat_template_version: 2013-05-23
+
+description: Simple template to deploy a single compute instance
+
+parameters:
+  private_net_cidr:
+    type: string
+    label: Data Network
+    description: Data network address (CIDR notation)
+    default: 172.16.0.0/24
+
+ wordpress_vol_size:
+    type: number
+    label: Wordpress Volume Size
+    description: The size of the Wordpress block storage volume
+    default: 1
+
+  mysql_vol_size:
+    type: number
+    label: MySQL Volume Size
+    description: The size of the MySQL block storage volume
+    default: 1
+
+  wordpress_flavor:
+    type: string
+    label: Wordpress Instance Size
+    description: The instance size for Wordpress
+    default: m1.tiny
+    constraints:
+      - allowed_values: [ m1.tiny ]
+
+  mysql_flavor:
+    type: string
+    label: MySQL Instance Size
+    description: The instance size for MySQL
+    default: m1.tiny
+    constraints:
+      - allowed_values: [ m1.tiny ]
+
+resources:
+  wordpress:
+    type: OS::Nova::Server
+    properties:
+      key_name: rashford
+      image: rashford/wordpress
+      flavor: { get_param: wordpress_flavor }
+      networks:
+        - port: { get_resource: wordpress_data_port }
+        - port: { get_resource: wordpress_port }
+
+  database:
+    type: OS::Nova::Server
+    properties:
+      key_name: rashford
+      image: rashford/mysql
+      flavor: { get_param: mysql_flavor }
+      networks:
+        - port: { get_resource: mysql_data_port }
+
+  private_net:
+    type: OS::Neutron::Net
+    properties:
+      name: data
+
+  private_subnet:
+    type: OS::Neutron::Subnet
+    properties:
+      network_id: { get_resource: private_net }
+      cidr: { get_param: private_net_cidr }
+
+  wordpress_port:
+    type: OS::Neutron::Port
+    properties:
+      network_id: 63ad3175-130a-478b-b33c-37f0e7ecf4e8
+      security_groups: [ { get_resource: www_group } ]
+
+  wordpress_data_port:
+    type: OS::Neutron::Port
+    properties:
+      network_id: { get_resource: private_net }
+      fixed_ips:
+        - subnet_id: { get_resource: private_subnet }
+ 
+  wordpress_floating_ip:
+    type: OS::Neutron::FloatingIP
+    properties:
+      floating_network_id: 2b85b72c-21fc-4b91-b990-24fac381658d
+      port_id: { get_resource: wordpress_port }
+
+  mysql_data_port:
+    type: OS::Neutron::Port
+    properties:
+      network_id: { get_resource: private_net }
+      security_groups: [ { get_resource: mysql_group } ]
+      fixed_ips:
+        - subnet_id: { get_resource: private_subnet }
+
+  www_group:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      description: Add security group rules for server
+      name: www
+      rules:
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: tcp
+          port_range_min: 80
+          port_range_max: 80
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: tcp
+          port_range_min: 443
+          port_range_max: 443
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: icmp
+
+  mysql_group:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      description: Add security group rules for server
+      name: mysql
+      rules:
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: tcp
+          port_range_min: 3306
+          port_range_max: 3306
+        - remote_ip_prefix: 0.0.0.0/0
+          protocol: icmp
+
+  wordpress_vol:
+    type: OS::Cinder::Volume
+    properties:
+      size: { get_param: wordpress_vol_size }
+
+  wordpress_vol_att:
+    type: OS::Cinder::VolumeAttachment
+    properties:
+      instance_uuid: { get_resource: wordpress }
+      volume_id: { get_resource: wordpress_vol }
+
+  mysql_vol:
+    type: OS::Cinder::Volume
+    properties:
+      size: { get_param: mysql_vol_size }
+
+  mysql_vol_att:
+    type: OS::Cinder::VolumeAttachment
+    properties:
+      instance_uuid: { get_resource: database }
+      volume_id: { get_resource: mysql_vol }
