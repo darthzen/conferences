@@ -328,7 +328,7 @@
         <package name="libfreetype6"/>
         <package name="shared-mime-info"/>
     </packages>
-    <packages type="delete" profiles="docker,amazon">
+    <packages type="delete" profiles="container,amazon">
         <package name="kernel-default"/>
     </packages>
 
