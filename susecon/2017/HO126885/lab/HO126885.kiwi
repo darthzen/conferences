@@ -82,6 +82,9 @@
     <preferences profiles="azure">
         <type image="vmx" filesystem="btrfs" boot="vmxboot/suse-SLES12" format="vmdk" bootloader="grub2" firmware="uefi" kernelcmdline="systemd.show_status=0 plymouth.enable=0" bootpartition="false" bootkernel="custom" devicepersistency="by-label" btrfs_root_is_snapshot="true"/>
     </preferences>
+    <users group="group_name" id="number">
+        <user home="/root" id="0" name="root" password="linux" pwdformat="plain" realname="string" shell="path"/>
+    </users>    
     <!--
     <repository type="yast2" alias="SLES-12-SP3-x86_64" imageinclude="true">
         <source path="nfs://192.168.130.2:/exports/SLES12-SP3-x86_64"/>
